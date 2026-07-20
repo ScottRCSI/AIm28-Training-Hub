@@ -502,11 +502,42 @@ function Drawer({ module: m, progress, reflections, role, onClose, onClaim, onSa
 // ─── ONBOARDING ───────────────────────────────────────────────────────────────
 function Onboard({ onDone }) {
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [role, setRole] = useState(null);
-  const valid = name.trim() && role;
+  const [submitting, setSubmitting] = useState(false);
+  const valid = name.trim() && email.trim() && email.includes("@") && role;
+
+  async function handleSubmit() {
+    if (!valid) return;
+    setSubmitting(true);
+    try {
+      // Netlify Forms submission
+      await fetch("/", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          "form-name": "aim28-registration",
+          name: name.trim(),
+          email: email.trim(),
+          role: role,
+          timestamp: new Date().toISOString(),
+        }).toString(),
+      });
+    } catch (e) {
+      // Continue even if form submission fails — don't block the user
+      console.warn("Form submission failed:", e);
+    }
+    setSubmitting(false);
+    onDone(name.trim(), email.trim(), role);
+  }
 
   return (
     <div style={{ minHeight: "100vh", background: "linear-gradient(140deg,#00101d 0%,#002542 52%,#004670 100%)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "'Libre Franklin', system-ui, sans-serif" }}>
+      {/* Hidden Netlify form for detection */}
+      <form name="aim28-registration" data-netlify="true" style={{ display: "none" }}>
+        <input name="name" /><input name="email" /><input name="role" /><input name="timestamp" />
+      </form>
+
       <div style={{ background: T.cardWhite, borderRadius: 20, padding: "40px 44px", maxWidth: 520, width: "100%", boxShadow: "0 30px 60px -20px rgba(0,0,0,.5)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 22 }}>
           <div style={{ width: 36, height: 4, background: T.gold, borderRadius: 2 }} />
@@ -520,6 +551,17 @@ function Onboard({ onDone }) {
           value={name}
           onChange={e => setName(e.target.value)}
           placeholder="First name or display name"
+          style={{ width: "100%", boxSizing: "border-box", fontFamily: "inherit", fontSize: 15, padding: "12px 14px", borderRadius: 8, border: `1.5px solid #CDD7DF`, background: "#F7F9FC", color: T.navy, marginBottom: 16, outline: "none" }}
+          onFocus={e => e.target.style.borderColor = T.blue}
+          onBlur={e => e.target.style.borderColor = "#CDD7DF"}
+        />
+
+        <label style={{ fontWeight: 700, fontSize: 13, color: T.navy, display: "block", marginBottom: 8 }}>Work email</label>
+        <input
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          placeholder="you@mckesson.com"
+          type="email"
           style={{ width: "100%", boxSizing: "border-box", fontFamily: "inherit", fontSize: 15, padding: "12px 14px", borderRadius: 8, border: `1.5px solid #CDD7DF`, background: "#F7F9FC", color: T.navy, marginBottom: 22, outline: "none" }}
           onFocus={e => e.target.style.borderColor = T.blue}
           onBlur={e => e.target.style.borderColor = "#CDD7DF"}
@@ -540,16 +582,20 @@ function Onboard({ onDone }) {
           ))}
         </div>
 
-        <Btn variant="gold" disabled={!valid} onClick={() => valid && onDone(name.trim(), role)} style={{ width: "100%", justifyContent: "center", padding: 14, fontSize: 15 }}>
-          Enter the training hub →
+        <Btn variant="gold" disabled={!valid || submitting} onClick={handleSubmit} style={{ width: "100%", justifyContent: "center", padding: 14, fontSize: 15 }}>
+          {submitting ? "Registering..." : "Enter the training hub →"}
         </Btn>
+
+        <p style={{ fontSize: 11, color: T.faint, textAlign: "center", marginTop: 14, lineHeight: 1.5 }}>
+          Your email is used only for program tracking and material delivery. No marketing.
+        </p>
       </div>
     </div>
   );
 }
 
 // ─── NAV ─────────────────────────────────────────────────────────────────────
-function Nav({ view, setView, userName, role, setOnboarded, setRole, setUserName, setProgress, setReflections }) {
+function Nav({ view, setView, userName, role, setOnboarded, setRole, setUserName, setUserEmail, setProgress, setReflections }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const tabs = [["home","Dashboard"],["modules","Modules"],["progress","My progress"],
     ...(role === "trainer" ? [["trainer","Trainer view"]] : []),
@@ -582,13 +628,13 @@ function Nav({ view, setView, userName, role, setOnboarded, setRole, setUserName
             <div style={{ padding: "10px 16px", fontSize: 12, color: T.muted, borderBottom: `1px solid ${T.cardBorder}`, fontWeight: 600, letterSpacing: ".5px", textTransform: "uppercase" }}>
               {role === "trainer" ? "Trainer" : "Participant"} view
             </div>
-            <div onClick={() => { setMenuOpen(false); if(window.confirm("Switch role? This will reset your session.")) { setOnboarded(false); setRole(null); setUserName(""); setProgress({}); setReflections({}); }}}
+            <div onClick={() => { setMenuOpen(false); if(window.confirm("Switch role? This will reset your session.")) { setOnboarded(false); setRole(null); setUserName(""); setUserEmail(""); setProgress({}); setReflections({}); }}}
               style={{ padding: "12px 16px", fontSize: 14, color: T.slate, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}
               onMouseEnter={e => e.currentTarget.style.background = T.highlight}
               onMouseLeave={e => e.currentTarget.style.background = "none"}>
               ⇄ Switch role
             </div>
-            <div onClick={() => { setMenuOpen(false); if(window.confirm("Reset all progress and start over?")) { setProgress({}); setReflections({}); setOnboarded(false); setRole(null); setUserName(""); }}}
+            <div onClick={() => { setMenuOpen(false); if(window.confirm("Reset all progress and start over?")) { setProgress({}); setReflections({}); setOnboarded(false); setRole(null); setUserName(""); setUserEmail(""); }}}
               style={{ padding: "12px 16px", fontSize: 14, color: "#c0392b", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, borderTop: `1px solid ${T.cardBorder}` }}
               onMouseEnter={e => e.currentTarget.style.background = "#fdf0f0"}
               onMouseLeave={e => e.currentTarget.style.background = "none"}>
@@ -995,6 +1041,7 @@ export default function AIM28Hub() {
   const [onboarded, setOnboarded] = usePersisted("aim28v3_onboarded", false);
   const [role,      setRole]      = usePersisted("aim28v3_role", null);
   const [userName,  setUserName]  = usePersisted("aim28v3_name", "");
+  const [userEmail, setUserEmail] = usePersisted("aim28v3_email", "");
   const [progress,  setProgress]  = usePersisted("aim28v3_progress", {});
   const [reflections, setReflections] = usePersisted("aim28v3_refs", {});
   const [view,      setView]      = useState("home");
@@ -1003,8 +1050,8 @@ export default function AIM28Hub() {
   const totalPts       = Object.values(progress).reduce((s, v) => s + (v || 0), 0);
   const completedCount = Object.keys(progress).filter(k => progress[k] > 0).length;
 
-  function handleOnboard(name, r) {
-    setUserName(name); setRole(r); setOnboarded(true);
+  function handleOnboard(name, email, r) {
+    setUserName(name); setUserEmail(email); setRole(r); setOnboarded(true);
   }
 
   function handleClaim(moduleId, pts) {
@@ -1040,7 +1087,7 @@ export default function AIM28Hub() {
       `}</style>
 
       <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-        <Nav view={view} setView={setView} userName={userName} role={role} setOnboarded={setOnboarded} setRole={setRole} setUserName={setUserName} setProgress={setProgress} setReflections={setReflections} />
+        <Nav view={view} setView={setView} userName={userName} role={role} setOnboarded={setOnboarded} setRole={setRole} setUserName={setUserName} setUserEmail={setUserEmail} setProgress={setProgress} setReflections={setReflections} />
 
         <main style={{ flex: 1, maxWidth: 1140, margin: "0 auto", padding: "38px 48px", width: "100%" }}>
           {view === "home"      && <Dashboard userName={userName} totalPts={totalPts} completedCount={completedCount} progress={progress} onOpenModule={id => setDrawer(id)} />}
